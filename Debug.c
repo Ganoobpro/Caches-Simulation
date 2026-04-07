@@ -3,10 +3,10 @@
 
 #include "Setup.h"
 
-void Error(char* message, int length)
+void ErrorMessage(const char* message)
 {
   printf("--------------------------------------------------\n");
-  printf("%.*s\n", length, message);
+  printf("%.*s\n", strlen(message), message);
   exit(1);
 }
 

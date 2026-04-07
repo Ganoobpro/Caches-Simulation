@@ -1,21 +1,11 @@
 #ifndef  CACHE_SIMULATION_MAIN_MEMORY
 #define CACHE_SIMULATION_MAIN_MEMORY
+#include "MainMemory.h"
 
-#include "Setup.h"
-#include "MemorySetup.h"
-#include "Debug.c"
 
-#define MAIN_MEMORY_CAPACITY 4096
 
-typedef struct
-{
-  uint8_t memorycell[MAIN_MEMORY_CAPACITY];
-}
-MainMemory;
-
-MainMemory mainMemory;
-
-void InitMainMemory(MainMemory* mainMemory)
+void
+ClearMainMemory(MainMemory* mainMemory)
 {
   for(int i=0; i<MAIN_MEMORY_CAPACITY; i++)
   {
@@ -23,13 +13,14 @@ void InitMainMemory(MainMemory* mainMemory)
   }
 }
 
-void PrintMainMemory(MainMemory* mainMemory)
+void
+PrintMainMemory(MainMemory* mainMemory)
 {
-  for(uint8_t i=0; i<(MAIN_MEMORY_CAPACITY>>3); i++)
+  for(uint8_t i=0; i < VISIBLE_MEMORY_ROWS; i++)
   {
-    for(uint8_t j=0; j<8; j++)
+    for(uint8_t j=0; j < VISIBLE_MEMORY_COLS; j++)
     {
-      printf("   0x%02X   ", mainMemory->memorycell[(i<<3) + j]);
+      printf("   0x%02X   ", mainMemory->memorycell[i * VISIBLE_MEMORY_ROWS + j]);
     }
     printf("\n");
   }
@@ -41,7 +32,7 @@ AccessMainMemory(MainMemory* mainMemory, AddressType address,
 {
   if(address >= MAIN_MEMORY_CAPACITY)
   {
-    Error("[Main Memory] Unable to read from invalid main memory address!!!", 64);
+    ErrorMessage("[Main Memory] Unable to read from invalid main memory address!!!");
   }
 
   memcpy(dest, mainMemory->memorycell + address, destSize);
@@ -52,14 +43,14 @@ void WriteToMainMemory(MainMemory* mainMemory, AddressType address,
 {
   if(address + addressSize >= MAIN_MEMORY_CAPACITY)
   {
-    Error("[Main Memory] Unable to write from invalid main memory address!!!", 65);
+    ErrorMessage("[Main Memory] Unable to write from invalid main memory address!!!");
   }
 
   memcpy(mainMemory->memorycell + address, addressValue, addressSize);
 }
 
-/*
-int main()
+int
+main()
 {
   MainMemory mainMemory;
   InitMainMemory(&mainMemory);
@@ -74,6 +65,5 @@ int main()
 
   return 0;
 }
-*/
 
 #endif
