@@ -44,18 +44,9 @@ FreeCacheMemory(CacheMemory* cacheMemory)
 }
 
 // TODO: Will apply MSI/MESI policy IN THE FUTURE
-// NOTE: This function cannot handle to take integer number from offset 61+
-void*
-LookupAndUpdateSet(CacheMemory* cacheMemory, const AddressType& mainMemoryAddress,
-                   const int& destSize)
+CacheLine*
+LookupAndUpdateSet(CacheMemory* cacheMemory, const AddressParts addressParts)
 {
-  // Divide Address into Tag, Set, and Offset
-  AddressParts addressParts;
-  DivideAddress(cacheMemory, mainMemoryAddress, &addressParts);
-
-  if(addressParts->offset + destSize >= CACHE_LINE_DATA_SIZE)
-    Error("[Cache] Cannot handle data across many cache lines.");
-
   // LOOKUP
   uint8_t way;
   for(way = 0; way < cacheMemory->numberOfWays; way++)
@@ -70,12 +61,14 @@ LookupAndUpdateSet(CacheMemory* cacheMemory, const AddressType& mainMemoryAddres
     if(tag == cacheMemory->cacheLines[addressParts->setIndex][way].tag)
     {
       cacheMemory->cacheHit++;
-      return checkedCacheLine->dataCells + addressParts->offset;
+      return checkedCacheLine->dataCells;
     }
   }
 
   // Cache MISS -> UPDATE
-  AddressType startDataChunk = mainMemoryAddress & (((1 << (sizeof(AddressType) - OFFSET_BITS)) - 1) << OFFSET_BITS);
+  AddressType startDataChunk =   (AddressParts->tag << (cacheMemory->setBits + OFFSET_BITS))
+                               + (AddressParts->setIndex << OFFSET_BITS);
+
   CacheLine* victim = when (way < cacheMemory->numberOfWays)
                       then (CacheLine*) GetCacheLine(cacheMemory, addressParts->setIndex, way);
                       only; // Replacement policy
@@ -85,21 +78,43 @@ LookupAndUpdateSet(CacheMemory* cacheMemory, const AddressType& mainMemoryAddres
   victim->valid = true;
   cacheMemory->cacheMiss++;
 
-  return victim + addressParts->offset;
+  return victim;
 }
 
 void ReadFromCache(CacheMemory* cacheMemory, const AddressType& mainMemoryAddress,
                    const void* dest, const int& destSize)
 {
-  CacheLine* target = LookupAndUpdateSet(cacheMemory, mainMemoryAddress, destSize);
-  memcpy(dest, target, destSize);
+  // Divide Address into Tag, Set, and Offset
+  AddressParts addressParts;
+  DivideAddress(cacheMemory, mainMemoryAddress, &addressParts);
+
+  // Handle Misaligned Access situation
+  if(addressParts->offset + destSize >= CACHE_LINE_DATA_SIZE)
+    Error("[Cache] Cannot handle data across many cache lines.");
+
+  CacheLine* target = LookupAndUpdateSet(cacheMemory, addressParts);
+  memcpy(dest,
+         target->dataCells + addressParts->offset,
+         destSize);
+  target->dirty = false;
 }
 
 void WriteToCache(CacheMemory* cacheMemory, const AddressType& mainMemoryAddress,
                    const void* dest, const int& destSize)
 {
+  // Divide Address into Tag, Set, and Offset
+  AddressParts addressParts;
+  DivideAddress(cacheMemory, mainMemoryAddress, &addressParts);
+
+  // Handle Misaligned Access situation
+  if(addressParts->offset + destSize >= CACHE_LINE_DATA_SIZE)
+    Error("[Cache] Cannot handle data across many cache lines.");
+
   CacheLine* target = LookupAndUpdateSet(cacheMemory, mainMemoryAddress, destSize);
-  memcpy(target, dest, destSize);
+  memcpy(target->dataCells + addressParts->offset,
+         dest,
+         destSize);
+  target->dirty = true;
 }
 
 #endif
