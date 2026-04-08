@@ -21,16 +21,17 @@ RandomReplacement(CacheMemory* cacheMemory)
 
 
 void
-InitCacheMemory(mainMemory* mainMemory, CacheMemory* cacheMemory,
+InitCacheMemory(CacheMemory* cacheMemory, MainMemory* mainMemory,
                 uint8_t numberOfSets, uint8_t numberOfWays,
                 uint8_t setBits)
 {
+  cacheMemory->mainMemory = mainMemory;
   cacheMemory->cacheLines = (CacheLine*) malloc(numberOfSets * numberOfWays * sizeof(CacheLine));
 
   cacheMemory->cacheMemoryCapacity = numberOfSets * numberOfWays * CACHE_LINE_DATA_SIZE;
   cacheMemory->numberOfSets = numberOfSets;
   cacheMemory->numberOfWays = numberOfWays;
-  cacheMemory->offsetBits = offsetBits;
+  cacheMemory->setBits = setBits;
 
   cacheMemory->cacheHit = 0;
   cacheMemory->cacheMiss = 0;
@@ -72,9 +73,9 @@ LookupAndUpdateSet(CacheMemory* cacheMemory, const uint32_t& mainMemoryAddress,
 
   // Cache MISS -> UPDATE
   uint8_t victim = RandomReplacement(cacheMemory);
-  AccessMainMemory(mainMemory, mainMemoryAddress,
-                   cacheMemory->cacheLines[set][way].dataCells + offset,
-                   destSize);
+  ReadFromMainMemory(cacheMemory->mainMemory, mainMemoryAddress,
+                     cacheMemory->cacheLines[set][victim].dataCells + offset,
+                     destSize);
   cacheMemory->cacheMiss++;
 }
 

@@ -1,8 +1,7 @@
 #ifndef  CACHE_SIMULATION_MAIN_MEMORY
 #define CACHE_SIMULATION_MAIN_MEMORY
 #include "MainMemory.h"
-
-
+#include "Debug.c"
 
 void
 ClearMainMemory(MainMemory* mainMemory)
@@ -16,54 +15,42 @@ ClearMainMemory(MainMemory* mainMemory)
 void
 PrintMainMemory(MainMemory* mainMemory)
 {
-  for(uint8_t i=0; i < VISIBLE_MEMORY_ROWS; i++)
+  for(int i=0; i < VISIBLE_MEMORY_ROWS; i++)
   {
-    for(uint8_t j=0; j < VISIBLE_MEMORY_COLS; j++)
+    for(int j=0; j < VISIBLE_MEMORY_COLS; j++)
     {
-      printf("   0x%02X   ", mainMemory->memorycell[i * VISIBLE_MEMORY_ROWS + j]);
+      printf("   0x%02X   ", mainMemory->memorycell[i * VISIBLE_MEMORY_COLS + j]);
     }
     printf("\n");
   }
 }
 
-void
-AccessMainMemory(MainMemory* mainMemory, AddressType address,
-                 void* dest, AddressType destSize)
+void*
+AccessMainMemory(MainMemory* mainMemory, AddressType address)
 {
   if(address >= MAIN_MEMORY_CAPACITY)
   {
     ErrorMessage("[Main Memory] Unable to read from invalid main memory address!!!");
   }
 
-  memcpy(dest, mainMemory->memorycell + address, destSize);
+  return mainMemory->memorycell + address;
 }
 
-void WriteToMainMemory(MainMemory* mainMemory, AddressType address,
-                       void* addressValue, AddressType addressSize)
+void
+ReadFromMainMemory(MainMemory* mainMemory, AddressType address,
+                   void* dest, AddressType destSize)
 {
-  if(address + addressSize >= MAIN_MEMORY_CAPACITY)
-  {
-    ErrorMessage("[Main Memory] Unable to write from invalid main memory address!!!");
-  }
-
-  memcpy(mainMemory->memorycell + address, addressValue, addressSize);
+  memcpy(dest,
+         AccessMainMemory(mainMemory, address),
+         destSize);
 }
 
-int
-main()
+void
+WriteToMainMemory(MainMemory* mainMemory, AddressType address,
+                       void* value, AddressType valueSize)
 {
-  MainMemory mainMemory;
-  InitMainMemory(&mainMemory);
-
-  int value = 9485;
-  WriteToMainMemory(&mainMemory, 1025, &value, sizeof(int));
-  PrintMainMemory(&mainMemory);
-
-  int key;
-  ReadFromMainMemory(&mainMemory, 1025, &key, sizeof(int));
-  printf("%d", key);
-
-  return 0;
+  memcpy(AccessMainMemory(mainMemory, address),
+         value, valueSize);
 }
 
 #endif

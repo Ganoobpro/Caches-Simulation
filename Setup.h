@@ -12,6 +12,9 @@ typedef long long ll;
 typedef unsigned long long ull;
 typedef long double ld;
 
+typedef uint8_t byte;
+typedef uint32_t AddressType;
+
 // Predicates
 #define success            0 ==
 #define failure            0 !=
