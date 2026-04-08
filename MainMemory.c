@@ -13,7 +13,7 @@ ClearMainMemory(MainMemory* mainMemory)
 }
 
 void
-PrintMainMemory(MainMemory* mainMemory)
+PrintMainMemory(const MainMemory* mainMemory)
 {
   for(int i=0; i < VISIBLE_MEMORY_ROWS; i++)
   {
@@ -26,19 +26,21 @@ PrintMainMemory(MainMemory* mainMemory)
 }
 
 void*
-AccessMainMemory(MainMemory* mainMemory, AddressType address)
+AccessMainMemory(const MainMemory* mainMemory,
+                 const AddressType address)
 {
   if(address >= MAIN_MEMORY_CAPACITY)
   {
     ErrorMessage("[Main Memory] Unable to read from invalid main memory address!!!");
   }
 
-  return mainMemory->memorycell + address;
+  return (void*)mainMemory->memorycell + address;
 }
 
 void
-ReadFromMainMemory(MainMemory* mainMemory, AddressType address,
-                   void* dest, AddressType destSize)
+ReadFromMainMemory(const MainMemory* mainMemory,
+                   const AddressType address,
+                   void* dest, const AddressType destSize)
 {
   memcpy(dest,
          AccessMainMemory(mainMemory, address),
@@ -46,8 +48,10 @@ ReadFromMainMemory(MainMemory* mainMemory, AddressType address,
 }
 
 void
-WriteToMainMemory(MainMemory* mainMemory, AddressType address,
-                       void* value, AddressType valueSize)
+WriteToMainMemory(MainMemory* mainMemory,
+                  const AddressType address,
+                  const void* value,
+                  const AddressType valueSize)
 {
   memcpy(AccessMainMemory(mainMemory, address),
          value, valueSize);

@@ -9,10 +9,12 @@ RandomReplacement(CacheMemory* cacheMemory)
   return (rand() * rand()) & (cacheMemory->numberOfWays - 1);
 }
 
+/*
 uint8_t
 FIFO_Replacement(CacheMemory* cacheMemory)
 {
 
 }
+*/
 
 #endif /* ifdef CACHE_SIMULATION_REPLACEMNT_POLICIES */

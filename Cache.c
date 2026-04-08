@@ -3,16 +3,18 @@
 #include "Cache.h"
 
 static void
-DivideAddress(CacheMemory* cacheMemory, const AddressType& address,
+DivideAddress(const CacheMemory* cacheMemory,
+              const AddressType address,
               AddressParts* addressParts)
 {
-  addressParts->offset = mainMemoryAddress & ((1 << OFFSET_BITS) - 1);
-  addressParts->set = (mainMemoryAddress >> cacheMemory->offsetBits) & ((1 << cacheMemory->setBits) - 1);
-  addressParts->tag = mainMemoryAddress >> (cacheMemory->offsetBits + OFFSET_BITS);
+  addressParts->offset = address & ((1 << OFFSET_BITS) - 1);
+  addressParts->setIndex = (address >> OFFSET_BITS) & ((1 << cacheMemory->setBits) - 1);
+  addressParts->tag = address >> (cacheMemory->setBits + OFFSET_BITS);
 }
 
-static inline void*
-GetCacheLine(CacheMemory* cacheMemory, const uint8_t& set, const uint8_t& way)
+static inline CacheLine*
+GetCacheLine(const CacheMemory* cacheMemory,
+             const uint8_t set, const uint8_t way)
 {
   return cacheMemory->cacheLines + set * cacheMemory->numberOfWays + way;
 }
@@ -25,8 +27,10 @@ InitCacheMemory(CacheMemory* cacheMemory, MainMemory* mainMemory,
                 uint8_t setBits)
 {
   cacheMemory->mainMemory = mainMemory;
-  cacheMemory->cacheLines = (CacheLine*) malloc(numberOfSets * numberOfWays * sizeof(CacheLine));
-  for(int i=0; i < numberOfSets * numberOfWays * sizeof(CacheLine); i++)
+
+  int totalLines = numberOfSets * numberOfWays;
+  cacheMemory->cacheLines = malloc(totalLines* sizeof(CacheLine));
+  for(int i=0; i < totalLines; i++)
     cacheMemory->cacheLines[i].valid = false;
 
   cacheMemory->cacheMemoryCapacity = numberOfSets * numberOfWays * CACHE_LINE_DATA_SIZE;
@@ -45,37 +49,36 @@ FreeCacheMemory(CacheMemory* cacheMemory)
 }
 
 CacheLine*
-LookupAndUpdateSet(CacheMemory* cacheMemory, const AddressParts addressParts)
+LookupAndUpdateSet(CacheMemory* cacheMemory,
+                   const AddressParts* addressParts)
 {
   // LOOKUP
   uint8_t way;
   for(way = 0; way < cacheMemory->numberOfWays; way++)
   {
-    CacheLine* checkedCacheLine = (CacheLine*)
-                                  GetCacheLine(cacheMemory, addressParts->setIndex, way);
+    CacheLine* checkedCacheLine = GetCacheLine(cacheMemory, addressParts->setIndex, way);
 
     // This way is not currently in used => Cache MISS
     ifnot(checkedCacheLine->valid) break;
 
     // Cache HIT
-    if(tag == cacheMemory->cacheLines[addressParts->setIndex][way].tag)
+    if(addressParts->tag == checkedCacheLine->tag)
     {
       cacheMemory->cacheHit++;
-      return checkedCacheLine->dataCells;
+      return checkedCacheLine;
     }
   }
 
   // Cache MISS -> UPDATE
-  AddressType startDataChunk =   (AddressParts->tag << (cacheMemory->setBits + OFFSET_BITS))
-                               + (AddressParts->setIndex << OFFSET_BITS);
+  AddressType startDataChunk = (addressParts->tag << (cacheMemory->setBits + OFFSET_BITS))
+                               + (addressParts->setIndex << OFFSET_BITS);
 
   uint8_t victimWay = when (way < cacheMemory->numberOfWays)
                       then way
                       other RandomReplacement(cacheMemory); // Replacement Policy
-  CacheLine* victim = (CacheLine*)
-                      GetCacheLine(cacheMemory, addressParts->setIndex, victimWay);
+  CacheLine* victim = GetCacheLine(cacheMemory, addressParts->setIndex, victimWay);
 
-  ReadFromMainMemory(cacheMemory->mainMemory, mainMemoryAddress,
+  ReadFromMainMemory(cacheMemory->mainMemory, startDataChunk,
                      victim->dataCells, CACHE_LINE_DATA_SIZE);
   victim->valid = true;
   cacheMemory->cacheMiss++;
@@ -84,37 +87,39 @@ LookupAndUpdateSet(CacheMemory* cacheMemory, const AddressParts addressParts)
 }
 
 // TODO: Will apply MSI/MESI policy IN THE FUTURE
-void ReadFromCache(CacheMemory* cacheMemory, const AddressType& mainMemoryAddress,
-                   const void* dest, const int& destSize)
+void ReadFromCache(CacheMemory* cacheMemory,
+                   const AddressType mainMemoryAddress,
+                   void* dest, const int destSize)
 {
   // Divide Address into Tag, Set, and Offset
   AddressParts addressParts;
   DivideAddress(cacheMemory, mainMemoryAddress, &addressParts);
 
   // Handle Misaligned Access situation
-  if(addressParts->offset + destSize >= CACHE_LINE_DATA_SIZE)
-    Error("[Cache] Cannot handle data across many cache lines.");
+  if(addressParts.offset + destSize >= CACHE_LINE_DATA_SIZE)
+    ErrorMessage("[Cache] Cannot handle data across many cache lines.");
 
-  CacheLine* target = LookupAndUpdateSet(cacheMemory, addressParts);
+  CacheLine* target = LookupAndUpdateSet(cacheMemory, &addressParts);
   memcpy(dest,
-         target->dataCells + addressParts->offset,
+         target->dataCells + addressParts.offset,
          destSize);
   target->dirty = false;
 }
 
-void WriteToCache(CacheMemory* cacheMemory, const AddressType& mainMemoryAddress,
-                   const void* dest, const int& destSize)
+void WriteToCache(CacheMemory* cacheMemory,
+                  const AddressType mainMemoryAddress,
+                  const void* dest, const int destSize)
 {
   // Divide Address into Tag, Set, and Offset
   AddressParts addressParts;
   DivideAddress(cacheMemory, mainMemoryAddress, &addressParts);
 
   // Handle Misaligned Access situation
-  if(addressParts->offset + destSize >= CACHE_LINE_DATA_SIZE)
-    Error("[Cache] Cannot handle data across many cache lines.");
+  if(addressParts.offset + destSize >= CACHE_LINE_DATA_SIZE)
+    ErrorMessage("[Cache] Cannot handle data across many cache lines.");
 
-  CacheLine* target = LookupAndUpdateSet(cacheMemory, mainMemoryAddress, destSize);
-  memcpy(target->dataCells + addressParts->offset,
+  CacheLine* target = LookupAndUpdateSet(cacheMemory, &addressParts);
+  memcpy(target->dataCells + addressParts.offset,
          dest,
          destSize);
   target->dirty = true;

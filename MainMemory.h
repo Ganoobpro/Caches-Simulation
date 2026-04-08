@@ -3,7 +3,7 @@
 #include "Setup.h"
 #include "Debug.h"
 
-#define MAIN_MEMORY_CAPACITY 4096
+#define MAIN_MEMORY_CAPACITY 1048576 // 1MB RAM
 #define VISIBLE_MEMORY_ROWS  16
 #define VISIBLE_MEMORY_COLS  8
 
@@ -14,9 +14,13 @@ typedef struct
 MainMemory;
 
 void ClearMainMemory(MainMemory* mainMemory);
-void PrintMainMemory(MainMemory* mainMemory);
-void* AccessMainMemory(MainMemory* mainMemory, AddressType address);
-void ReadFromMainMemory(MainMemory* mainMemory, AddressType address,
-                       void* dest, AddressType destSize);
-void WriteToMainMemory(MainMemory* mainMemory, AddressType address,
-                       void* value, AddressType valueSize);
+void PrintMainMemory(const MainMemory* mainMemory);
+void* AccessMainMemory(const MainMemory* mainMemory,
+                       const AddressType address);
+void ReadFromMainMemory(const MainMemory* mainMemory,
+                        const AddressType address,
+                        void* dest, const AddressType destSize);
+void WriteToMainMemory(MainMemory* mainMemory,
+                       const AddressType address,
+                       const void* value,
+                       const AddressType valueSize);
