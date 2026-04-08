@@ -1,5 +1,6 @@
 #ifndef CACHE_SIMULATION_CACHE
 #define CACHE_SIMULATION_CACHE
+#include "Cache.h"
 
 static void
 DivideAddress(CacheMemory* cacheMemory, const AddressType& address,
@@ -43,7 +44,6 @@ FreeCacheMemory(CacheMemory* cacheMemory)
   free(cacheMemory->cacheLines);
 }
 
-// TODO: Will apply MSI/MESI policy IN THE FUTURE
 CacheLine*
 LookupAndUpdateSet(CacheMemory* cacheMemory, const AddressParts addressParts)
 {
@@ -69,9 +69,11 @@ LookupAndUpdateSet(CacheMemory* cacheMemory, const AddressParts addressParts)
   AddressType startDataChunk =   (AddressParts->tag << (cacheMemory->setBits + OFFSET_BITS))
                                + (AddressParts->setIndex << OFFSET_BITS);
 
-  CacheLine* victim = when (way < cacheMemory->numberOfWays)
-                      then (CacheLine*) GetCacheLine(cacheMemory, addressParts->setIndex, way);
-                      only; // Replacement policy
+  uint8_t victimWay = when (way < cacheMemory->numberOfWays)
+                      then way
+                      other RandomReplacement(cacheMemory); // Replacement Policy
+  CacheLine* victim = (CacheLine*)
+                      GetCacheLine(cacheMemory, addressParts->setIndex, victimWay);
 
   ReadFromMainMemory(cacheMemory->mainMemory, mainMemoryAddress,
                      victim->dataCells, CACHE_LINE_DATA_SIZE);
@@ -81,6 +83,7 @@ LookupAndUpdateSet(CacheMemory* cacheMemory, const AddressParts addressParts)
   return victim;
 }
 
+// TODO: Will apply MSI/MESI policy IN THE FUTURE
 void ReadFromCache(CacheMemory* cacheMemory, const AddressType& mainMemoryAddress,
                    const void* dest, const int& destSize)
 {

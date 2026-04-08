@@ -2,6 +2,7 @@
 
 #include "Setup.h"
 #include "MainMemory.h"
+#include "ReplacementPolicies.h"
 
 // Cache Mapping: N-way Set Associative Mapping
 #define CACHE_LINE_DATA_SIZE 64
