@@ -11,6 +11,7 @@ typedef struct
 {
   byte dataCells[CACHE_LINE_DATA_SIZE];
   uint32_t tag;
+  uint8_t other;
   bool valid;
   bool dirty;
 }

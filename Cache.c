@@ -2,7 +2,7 @@
 #define CACHE_SIMULATION_CACHE
 
 static void
-DivideAddress(CacheMemory* cacheMemory, const uint32_t& address,
+DivideAddress(CacheMemory* cacheMemory, const AddressType& address,
               AddressParts* addressParts)
 {
   addressParts->offset = mainMemoryAddress & ((1 << OFFSET_BITS) - 1);
@@ -46,15 +46,15 @@ FreeCacheMemory(CacheMemory* cacheMemory)
 // TODO: Will apply MSI/MESI policy IN THE FUTURE
 // NOTE: This function cannot handle to take integer number from offset 61+
 void*
-LookupAndUpdateSet(CacheMemory* cacheMemory, const uint32_t& mainMemoryAddress)
+LookupAndUpdateSet(CacheMemory* cacheMemory, const AddressType& mainMemoryAddress,
+                   const int& destSize)
 {
   // Divide Address into Tag, Set, and Offset
   AddressParts addressParts;
   DivideAddress(cacheMemory, mainMemoryAddress, &addressParts);
+
   if(addressParts->offset + destSize >= CACHE_LINE_DATA_SIZE)
-  {
     Error("[Cache] Cannot handle data across many cache lines.");
-  }
 
   // LOOKUP
   uint8_t way;
@@ -63,15 +63,14 @@ LookupAndUpdateSet(CacheMemory* cacheMemory, const uint32_t& mainMemoryAddress)
     CacheLine* checkedCacheLine = (CacheLine*)
                                   GetCacheLine(cacheMemory, addressParts->setIndex, way);
 
-    // This way is not currently in used
-    // Cache MISS
+    // This way is not currently in used => Cache MISS
     ifnot(checkedCacheLine->valid) break;
 
     // Cache HIT
     if(tag == cacheMemory->cacheLines[addressParts->setIndex][way].tag)
     {
       cacheMemory->cacheHit++;
-      return cacheMemory->cacheLines + addressParts->setIndex * cacheMemory->numberOfWays + way;
+      return checkedCacheLine->dataCells + addressParts->offset;
     }
   }
 
@@ -84,8 +83,23 @@ LookupAndUpdateSet(CacheMemory* cacheMemory, const uint32_t& mainMemoryAddress)
   ReadFromMainMemory(cacheMemory->mainMemory, mainMemoryAddress,
                      victim->dataCells, CACHE_LINE_DATA_SIZE);
   victim->valid = true;
-
   cacheMemory->cacheMiss++;
+
+  return victim + addressParts->offset;
+}
+
+void ReadFromCache(CacheMemory* cacheMemory, const AddressType& mainMemoryAddress,
+                   const void* dest, const int& destSize)
+{
+  CacheLine* target = LookupAndUpdateSet(cacheMemory, mainMemoryAddress, destSize);
+  memcpy(dest, target, destSize);
+}
+
+void WriteToCache(CacheMemory* cacheMemory, const AddressType& mainMemoryAddress,
+                   const void* dest, const int& destSize)
+{
+  CacheLine* target = LookupAndUpdateSet(cacheMemory, mainMemoryAddress, destSize);
+  memcpy(target, dest, destSize);
 }
 
 #endif
