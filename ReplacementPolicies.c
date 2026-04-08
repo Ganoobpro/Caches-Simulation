@@ -10,6 +10,9 @@ RandomReplacement(CacheMemory* cacheMemory)
 }
 
 uint8_t
+FIFO_Replacement(CacheMemory* cacheMemory)
+{
 
+}
 
 #endif /* ifdef CACHE_SIMULATION_REPLACEMNT_POLICIES */

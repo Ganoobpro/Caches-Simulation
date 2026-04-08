@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Setup.h"
 #include "MainMemory.h"
 
 // Cache Mapping: N-way Set Associative Mapping
@@ -8,7 +9,7 @@
 
 typedef struct
 {
-  uint8_t dataCells[CACHE_LINE_DATA_SIZE];
+  byte dataCells[CACHE_LINE_DATA_SIZE];
   uint32_t tag;
   bool valid;
   bool dirty;
@@ -24,6 +25,9 @@ typedef struct
   uint8_t numberOfSets;
   uint8_t numberOfWays;
   uint8_t setBits;
+
+  // For replacement policies
+
 
   // For statistic purpose
   int cacheHit, cacheMiss;

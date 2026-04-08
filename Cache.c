@@ -10,12 +10,10 @@ DivideAddress(CacheMemory* cacheMemory, const uint32_t& address,
   addressParts->tag = mainMemoryAddress >> (cacheMemory->offsetBits + OFFSET_BITS);
 }
 
-static uint8_t
-RandomReplacement(CacheMemory* cacheMemory)
+static inline void*
+GetCacheLine(CacheMemory* cacheMemory, const uint8_t& set, const uint8_t& way)
 {
-  srand(time(NULL));
-  // Expect numberOfWays is a Power of 2
-  return (rand() * rand()) & (cacheMemory->numberOfWays - 1);
+  return cacheMemory->cacheLines + set * cacheMemory->numberOfWays + way;
 }
 
 
@@ -27,6 +25,8 @@ InitCacheMemory(CacheMemory* cacheMemory, MainMemory* mainMemory,
 {
   cacheMemory->mainMemory = mainMemory;
   cacheMemory->cacheLines = (CacheLine*) malloc(numberOfSets * numberOfWays * sizeof(CacheLine));
+  for(int i=0; i < numberOfSets * numberOfWays * sizeof(CacheLine); i++)
+    cacheMemory->cacheLines[i].valid = false;
 
   cacheMemory->cacheMemoryCapacity = numberOfSets * numberOfWays * CACHE_LINE_DATA_SIZE;
   cacheMemory->numberOfSets = numberOfSets;
@@ -45,9 +45,8 @@ FreeCacheMemory(CacheMemory* cacheMemory)
 
 // TODO: Will apply MSI/MESI policy IN THE FUTURE
 // NOTE: This function cannot handle to take integer number from offset 61+
-void
-LookupAndUpdateSet(CacheMemory* cacheMemory, const uint32_t& mainMemoryAddress,
-                   void* dest, int destSize)
+void*
+LookupAndUpdateSet(CacheMemory* cacheMemory, const uint32_t& mainMemoryAddress)
 {
   // Divide Address into Tag, Set, and Offset
   AddressParts addressParts;
@@ -58,24 +57,34 @@ LookupAndUpdateSet(CacheMemory* cacheMemory, const uint32_t& mainMemoryAddress,
   }
 
   // LOOKUP
-  for(uint8_t way = 0; way < cacheMemory->numberOfWays; way++)
+  uint8_t way;
+  for(way = 0; way < cacheMemory->numberOfWays; way++)
   {
+    CacheLine* checkedCacheLine = (CacheLine*)
+                                  GetCacheLine(cacheMemory, addressParts->setIndex, way);
+
+    // This way is not currently in used
+    // Cache MISS
+    ifnot(checkedCacheLine->valid) break;
+
     // Cache HIT
     if(tag == cacheMemory->cacheLines[addressParts->setIndex][way].tag)
     {
-      memcpy(dest,
-             cacheMemory->cacheLines[addressParts->setIndex][way].dataCells + addressParts->offset,
-             sizeOfDestination);
       cacheMemory->cacheHit++;
-      return;
+      return cacheMemory->cacheLines + addressParts->setIndex * cacheMemory->numberOfWays + way;
     }
   }
 
   // Cache MISS -> UPDATE
-  uint8_t victim = RandomReplacement(cacheMemory);
+  AddressType startDataChunk = mainMemoryAddress & (((1 << (sizeof(AddressType) - OFFSET_BITS)) - 1) << OFFSET_BITS);
+  CacheLine* victim = when (way < cacheMemory->numberOfWays)
+                      then (CacheLine*) GetCacheLine(cacheMemory, addressParts->setIndex, way);
+                      only; // Replacement policy
+
   ReadFromMainMemory(cacheMemory->mainMemory, mainMemoryAddress,
-                     cacheMemory->cacheLines[set][victim].dataCells + offset,
-                     destSize);
+                     victim->dataCells, CACHE_LINE_DATA_SIZE);
+  victim->valid = true;
+
   cacheMemory->cacheMiss++;
 }
 
