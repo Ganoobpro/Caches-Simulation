@@ -1,3 +1,5 @@
 #pragma once
 
-void ErrorMessage(const char* message);
+#include "Setup.h"
+
+void ErrorMessage(const char *message);

@@ -1,11 +1,8 @@
-#include "Setup.h"
-#include "Debug.c"
+#include "Cache.c"
 #include "MainMemory.c"
 #include "ReplacementPolicies.c"
-#include "Cache.c"
 
-void TestMainMemory()
-{
+void TestMainMemory() {
   MainMemory mainMemory;
 
   int value = 9485;
@@ -17,11 +14,10 @@ void TestMainMemory()
   printf("%d\n", key);
 }
 
-void TestCache()
-{
+void TestCache() {
   MainMemory mainMemory;
   CacheMemory L1Cache;
-  InitCacheMemory(&L1Cache, &mainMemory, 64, 8, 6);
+  InitCacheMemory(&L1Cache, &mainMemory, 64, 8);
 
   int value = 9485;
   WriteToCache(&L1Cache, 0, &value, sizeof(int));
@@ -33,9 +29,13 @@ void TestCache()
   FreeCacheMemory(&L1Cache);
 }
 
-int main()
-{
+int main() {
   TestMainMemory();
+  printf("--------------------------------------------------\n");
+  printf("Main Memory: Finished\n\n");
+
   TestCache();
+  printf("--------------------------------------------------\n");
+  printf("Cache: Finished\n\n");
   return 0;
 }

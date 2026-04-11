@@ -1,8 +1,6 @@
 #ifndef CACHE_SIMULATION_CACHE
 #define CACHE_SIMULATION_CACHE
 #include "Cache.h"
-#include "Debug.h"
-#include <stdbool.h>
 
 uint8_t (*ReplacementPolicy)(CacheMemory *CacheMemory,
                              uint8_t set) = RandomReplacement;
@@ -14,7 +12,7 @@ static uint8_t SimpleLog2(uint8_t number) {
   for (answer = 0; (1 << answer) < number; answer++) {
   }
 
-  ifnot((1 << answer) == answer)
+  ifnot((1 << answer) == number)
       ErrorMessage("[Cache] Expect number of Set is a power of 2.");
 
   return answer;
@@ -121,6 +119,8 @@ CacheLine *LookupAndUpdateSet(CacheMemory *cacheMemory,
   CacheLine *cacheLineVictim =
       GetCacheLine(cacheMemory, addressParts->set, victim);
   ReplaceCacheLine(cacheMemory, addressParts, cacheLineVictim);
+
+  return cacheLineVictim;
 }
 
 void ReadFromCache(CacheMemory *cacheMemory, AddressType mainMemoryAddress,

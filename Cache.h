@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Debug.h"
 #include "MainMemory.h"
 #include "Setup.h"
 
@@ -44,8 +45,14 @@ typedef struct {
 } AddressParts;
 
 void InitCacheMemory(CacheMemory *cacheMemory, MainMemory *mainMemory,
-                     uint8_t numberOfSets, uint8_t numberOfWays,
-                     uint8_t setBits);
+                     uint8_t numberOfSets, uint8_t numberOfWays);
 void FreeCacheMemory(CacheMemory *cacheMemory);
+CacheLine *LookupAndUpdateSet(CacheMemory *cacheMemory,
+                              AddressParts *addressParts,
+                              AddressType mainMemoryAddress);
+void ReadFromCache(CacheMemory *cacheMemory, AddressType mainMemoryAddress,
+                   void *dest, int destSize);
+void WriteToCache(CacheMemory *cacheMemory, AddressType mainMemoryAddress,
+                  void *dest, int destSize);
 
 #include "ReplacementPolicies.h"
