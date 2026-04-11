@@ -9,12 +9,18 @@
 #define VISIBLE_CACHE_COLS 8
 #define OFFSET_BITS 6
 
+#define REPLACEMENT_POLICY RandomReplacement
+#define UPDATE_REPLACEMENT_POLICY [](){} // Empty
+
 typedef struct
 {
-  byte dataCells[CACHE_LINE_DATA_SIZE];
+  byte* data;
   uint32_t tag;
   bool valid;
   bool dirty;
+
+  // For replacement policies
+  byte other;
 }
 CacheLine;
 
@@ -22,24 +28,25 @@ typedef struct
 {
   MainMemory* mainMemory;
   CacheLine* cacheLines;
+  byte* dataCells;
 
   int cacheMemoryCapacity;
   uint8_t numberOfSets;
   uint8_t numberOfWays;
   uint8_t setBits;
 
-  // For replacement policies
-
-
   // For statistic purpose
   int cacheHit, cacheMiss;
+
+  // For replacement policies
+  int* setOther;
 }
 CacheMemory;
 
 typedef struct
 {
   uint32_t tag;
-  uint8_t  setIndex;
+  uint8_t  set;
   uint8_t  offset;
 }
 AddressParts;
@@ -50,11 +57,3 @@ void InitCacheMemory(CacheMemory* cacheMemory, MainMemory* mainMemory,
                      uint8_t numberOfSets, uint8_t numberOfWays,
                      uint8_t setBits);
 void FreeCacheMemory(CacheMemory* cacheMemory);
-CacheLine* LookupAndUpdateSet(CacheMemory* cacheMemory,
-                   const AddressParts* addressParts);
-void ReadFromCache(CacheMemory* cacheMemory,
-                   const AddressType mainMemoryAddress,
-                   void* dest, const int destSize);
-void WriteToCache(CacheMemory* cacheMemory,
-                  const AddressType mainMemoryAddress,
-                  const void* dest, const int destSize);

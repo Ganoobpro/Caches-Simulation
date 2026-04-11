@@ -9,12 +9,21 @@ RandomReplacement(CacheMemory* cacheMemory)
   return (rand() * rand()) & (cacheMemory->numberOfWays - 1);
 }
 
-/*
 uint8_t
-FIFO_Replacement(CacheMemory* cacheMemory)
+FIFO_Replacement(CacheMemory* cacheMemory,
+                 AddressParts addressParts)
+{
+  uint8_t victim = cacheMemory->setOther[addressParts->setIndex]++;
+  cacheMemory->setOther[addressParts->setIndex] &= (cacheMemory->numberOfSets - 1); // Expect: Number Of Set is power of 2
+
+  return victim;
+}
+
+uint8_t
+TreeBasedPseudoLRU(CacheMemory* cacheMemory)
 {
 
+  return 0;
 }
-*/
 
 #endif /* ifdef CACHE_SIMULATION_REPLACEMNT_POLICIES */
