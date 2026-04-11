@@ -29,12 +29,13 @@ typedef struct {
   uint8_t numberOfSets;
   uint8_t numberOfWays;
   uint8_t setBits;
+  uint8_t wayBits;
 
   // For statistic purpose
   int cacheHit, cacheMiss;
 
   // For replacement policies
-  int *setReplacePolicy;
+  uint64_t *setReplacePolicy;
 } CacheMemory;
 
 typedef struct {

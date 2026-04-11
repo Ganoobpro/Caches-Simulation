@@ -5,7 +5,8 @@
 uint8_t (*ReplacementPolicy)(CacheMemory *CacheMemory,
                              uint8_t set) = RandomReplacement;
 void (*UpdateReplacementPolicy)(CacheMemory *CacheMemory, uint8_t set,
-                                uint8_t way) = EmptyReplacementUpdate;
+                                uint8_t recentAccessWay) =
+    EmptyReplacementUpdate;
 
 static uint8_t SimpleLog2(uint8_t number) {
   uint8_t answer;
@@ -63,7 +64,7 @@ void InitCacheMemory(CacheMemory *cacheMemory, MainMemory *mainMemory,
   // Malloc & Check
   cacheMemory->cacheLines = malloc(numberOfCells * sizeof(CacheLine));
   cacheMemory->dataCells = malloc(cacheMemory->cacheMemoryCapacity);
-  cacheMemory->setReplacePolicy = malloc(numberOfSets * sizeof(int));
+  cacheMemory->setReplacePolicy = malloc(numberOfSets * sizeof(uint64_t));
 
   if (!cacheMemory->cacheLines || !cacheMemory->dataCells ||
       !cacheMemory->setReplacePolicy)
@@ -83,6 +84,7 @@ void InitCacheMemory(CacheMemory *cacheMemory, MainMemory *mainMemory,
 
   // Constants & Stats
   cacheMemory->setBits = SimpleLog2(numberOfSets);
+  cacheMemory->wayBits = SimpleLog2(numberOfWays);
   cacheMemory->numberOfSets = numberOfSets;
   cacheMemory->numberOfWays = numberOfWays;
   cacheMemory->cacheHit = 0;
