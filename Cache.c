@@ -1,6 +1,7 @@
 #ifndef CACHE_SIMULATION_CACHE
 #define CACHE_SIMULATION_CACHE
 #include "Cache.h"
+#include "MainMemory.h"
 
 uint8_t (*ReplacementPolicy)(CacheMemory *CacheMemory,
                              uint8_t set) = RandomReplacement;
@@ -34,11 +35,6 @@ static AddressParts DivideAddress(CacheMemory *cacheMemory,
 static void CheckedAddress(AddressParts *addressParts, int size) {
   if (addressParts->offset + size >= CACHE_LINE_DATA_SIZE)
     ErrorMessage("[Cache] Unable to handle cross cache line data.");
-}
-
-static inline CacheLine *GetCacheLine(CacheMemory *cacheMemory, uint8_t set,
-                                      uint8_t way) {
-  return cacheMemory->cacheLines + set * cacheMemory->numberOfWays + way;
 }
 
 static void ReplaceCacheLine(CacheMemory *cacheMemory,
@@ -91,15 +87,18 @@ void InitCacheMemory(CacheMemory *cacheMemory, MainMemory *mainMemory,
   cacheMemory->cacheMiss = 0;
 }
 
+CacheLine *GetCacheLine(CacheMemory *cacheMemory, uint8_t set, uint8_t way) {
+  return cacheMemory->cacheLines + set * cacheMemory->numberOfWays + way;
+}
+
 void FreeCacheMemory(CacheMemory *cacheMemory) {
   free(cacheMemory->cacheLines);
   free(cacheMemory->dataCells);
   free(cacheMemory->setReplacePolicy);
 }
 
-CacheLine *LookupAndUpdateSet(CacheMemory *cacheMemory,
-                              AddressParts *addressParts,
-                              AddressType mainMemoryAddress) {
+uint8_t LookupAndUpdateSet(CacheMemory *cacheMemory, AddressParts *addressParts,
+                           AddressType mainMemoryAddress) {
   for (uint8_t way = 0; way < cacheMemory->numberOfWays; way++) {
     CacheLine *checkedCacheLine =
         GetCacheLine(cacheMemory, addressParts->set, way);
@@ -108,43 +107,59 @@ CacheLine *LookupAndUpdateSet(CacheMemory *cacheMemory,
     // However this situation doesnt need Replacement Algorithm
     ifnot(checkedCacheLine->valid) {
       ReplaceCacheLine(cacheMemory, addressParts, checkedCacheLine);
-      return checkedCacheLine;
+      return way;
     }
 
     // Cache HIT
     if (addressParts->tag == checkedCacheLine->tag)
-      return checkedCacheLine;
+      return way;
   }
 
   // Cache MISS - Write-Back Policy
   uint8_t victim = ReplacementPolicy(cacheMemory, addressParts->set);
+
+  // SPECIAL: Some algorithms in some case don't choose a victim
+  if (victim == 0xFF) {
+    return 0xFF;
+  }
+
   CacheLine *cacheLineVictim =
       GetCacheLine(cacheMemory, addressParts->set, victim);
   ReplaceCacheLine(cacheMemory, addressParts, cacheLineVictim);
 
-  return cacheLineVictim;
+  return victim;
+}
+
+static byte *GetMemoryTarget(CacheMemory *cacheMemory,
+                             AddressType mainMemoryAddress, void *dest,
+                             int destSize, bool dirty) {
+  AddressParts addressParts = DivideAddress(cacheMemory, mainMemoryAddress);
+  CheckedAddress(&addressParts, destSize);
+  uint8_t victim =
+      LookupAndUpdateSet(cacheMemory, &addressParts, mainMemoryAddress);
+
+  if (victim == 0xFF) {
+    return AccessMainMemory(cacheMemory->mainMemory, mainMemoryAddress);
+  }
+
+  UpdateReplacementPolicy(cacheMemory, addressParts.set, victim);
+  CacheLine *target = GetCacheLine(cacheMemory, addressParts.set, victim);
+  target->dirty = dirty;
+  return target->data + addressParts.offset;
 }
 
 void ReadFromCache(CacheMemory *cacheMemory, AddressType mainMemoryAddress,
                    void *dest, int destSize) {
-  AddressParts addressParts = DivideAddress(cacheMemory, mainMemoryAddress);
-  CheckedAddress(&addressParts, destSize);
-  CacheLine *target =
-      LookupAndUpdateSet(cacheMemory, &addressParts, mainMemoryAddress);
-
+  byte *target =
+      GetMemoryTarget(cacheMemory, mainMemoryAddress, dest, destSize, false);
   memcpy(dest, target, destSize);
-  target->dirty = false;
 }
 
 void WriteToCache(CacheMemory *cacheMemory, AddressType mainMemoryAddress,
                   void *dest, int destSize) {
-  AddressParts addressParts = DivideAddress(cacheMemory, mainMemoryAddress);
-  CheckedAddress(&addressParts, destSize);
-  CacheLine *target =
-      LookupAndUpdateSet(cacheMemory, &addressParts, mainMemoryAddress);
-
-  memcpy(target, dest, destSize);
-  target->dirty = true;
+  byte *target =
+      GetMemoryTarget(cacheMemory, mainMemoryAddress, dest, destSize, true);
+  memcpy(dest, target, destSize);
 }
 
 #endif
