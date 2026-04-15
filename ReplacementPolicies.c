@@ -3,8 +3,6 @@
 #include "ReplacementPolicies.h"
 #include "Cache.h"
 #include "Debug.h"
-#include <stdint.h>
-#include <sys/types.h>
 
 uint8_t RandomReplacement(CacheMemory *cacheMemory, uint8_t set) {
   srand(time(NULL));
@@ -13,8 +11,7 @@ uint8_t RandomReplacement(CacheMemory *cacheMemory, uint8_t set) {
 
 uint8_t FIFO_Replacement(CacheMemory *cacheMemory, uint8_t set) {
   uint8_t victim = cacheMemory->setReplacePolicy[set]++;
-  cacheMemory->setReplacePolicy[set] &=
-      (cacheMemory->numberOfSets - 1); // Expect: Number Of Set is power of 2
+  cacheMemory->setReplacePolicy[set] &= (cacheMemory->numberOfSets - 1);
 
   return victim;
 }
@@ -32,7 +29,7 @@ uint8_t MRU_Replacement(CacheMemory *cacheMemory, uint8_t set) {
 }
 
 uint8_t TreeBasedPseudoLRU(CacheMemory *cacheMemory, uint8_t set) {
-  uint64_t policyVariable = cacheMemory->setReplacePolicy[set];
+  uint64_t policyVariable = ~cacheMemory->setReplacePolicy[set];
   uint8_t victim = 0;
 
   for (uint8_t depthNodes = 1; depthNodes < cacheMemory->numberOfWays;
@@ -78,9 +75,11 @@ uint8_t NRU_Replacement(CacheMemory *cacheMemory, uint8_t set) {
     }
   }
 
-  // SPECIAL CASE: All ways are currently used
-  // => Meaning that the set is used frequently
-  // Reset
+  /*
+   * SPECIAL CASE: All ways are currently used
+   => Meaning that the set is used frequently
+   * Reset
+  */
   for (uint8_t i = 0; i < cacheMemory->numberOfWays; i++) {
     GetCacheLine(cacheMemory, set, i)->policyVariable = NOT_CURRENTLY_USED;
   }
@@ -156,23 +155,24 @@ void TreeBasedPseudoLRU_Update(CacheMemory *cacheMemory, uint8_t set,
                                uint8_t recentAccessWay) {
   uint64_t *policyVariable = cacheMemory->setReplacePolicy + set;
 
-  for (uint8_t depth = 0; depth < cacheMemory->wayBits; depth++) {
-    uint64_t policyMask = 1 << (1 + depth),
-             wayMask = 1 << (cacheMemory->wayBits - 1);
+  for (uint64_t mask = cacheMemory->wayBits, skip = 0; mask > 0;
+       mask--, skip = (skip << 1) + 1) {
+    uint64_t policyMask = 1 << ((recentAccessWay >> mask) + skip);
 
-    uint64_t checkedPolicyBit = *policyVariable & policyMask,
-             checkedWayBit = recentAccessWay & wayMask;
+    uint64_t policyBit = (*policyVariable) & policyMask,
+             currentBit = recentAccessWay & (1 << (mask - 1));
 
-    if ((!!checkedPolicyBit) == (!!checkedWayBit)) {
+    if (!policyBit == !currentBit) {
       continue;
     }
 
-    if (checkedWayBit) {
-      *policyVariable += checkedPolicyBit;
-      continue;
+    // policyBit = 1 -> make policyBit = 0
+    // policyBit = 0 -> make policyBit = 1
+    if (policyBit) {
+      (*policyVariable) &= ~policyMask;
+    } else {
+      (*policyVariable) += policyMask;
     }
-
-    *policyVariable &= ~checkedPolicyBit;
   }
 }
 
